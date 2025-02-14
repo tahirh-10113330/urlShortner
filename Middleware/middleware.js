@@ -1,6 +1,7 @@
 const redis = require("../database/redisClient");
 const jwt = require("jsonwebtoken");
 const axios = require('axios');
+const { connectDB, getDB } = require("../database/db");
 const dotenv = require("dotenv");
 dotenv.config();
 
@@ -44,7 +45,24 @@ async function verifyGoogleToken(req, res) {
 
         const { email, sub, name, picture } = response?.data;
 
-        const user = { id: sub, email, name, avatar: picture };
+        await connectDB(); // Ensure database connection
+        const db = getDB();
+        const usersCollection = db.collection("users");
+
+        let user = await usersCollection.findOne({ googleId:sub });
+
+        if (!user) {
+
+            user = { 
+                googleId: sub,
+                displayName : name, 
+                email :email, 
+                avatar: picture,
+                createdAt: new Date(),
+            };
+
+            await usersCollection.insertOne(user);
+        }
 
         // Generate JWT token
         const jwtToken = jwt.sign(
